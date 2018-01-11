@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: uactoken
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: uactoken
+    spec:
+      containers:
+      - name: uactoken
+        image: wcr.io/zteuac/uactoken:$TAG
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            memory: 4Gi
+        imagePullPolicy: Always
+      imagePullSecrets:
+      - name: wrelease

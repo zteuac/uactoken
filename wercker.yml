@@ -1,0 +1,87 @@
+box:
+  id: python:2.7-slim
+download:
+  steps:
+    - install-packages:
+      packages: gcc libssl-dev
+    - pip-install
+    - script:
+      name: download
+      code: |
+        python download.py
+build:
+  box: 
+      id: wcr.io/zteuac/baseappimage
+      username: $DOCKER_USER
+      password: $DOCKER_PASSWORD
+      tag: v2.0
+  steps:
+    - script: 
+      name: build
+      code: |
+        mkdir -p /usr/local/tomcat/webapps/uactoken
+        ls
+        echo 'pwd1'
+        pwd
+        mv ./uactoken.war /usr/local/tomcat/webapps/uactoken/
+        cd /usr/local/tomcat/webapps/uactoken 
+        du -sh ./*
+        jar -xvf uactoken.war
+        rm -fr uactoken.war
+        cd -
+        cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+            && echo 'Asia/Shanghai' >/etc/timezone
+        cat ./run.sh
+        cp ./run.sh /root/
+        chmod 755 /root/run.sh
+    - internal/docker-push:
+        username: $DOCKER_USER
+        password: $DOCKER_PASSWORD
+        repository: wcr.io/zteuac/uactoken
+        working-dir: /usr/local/tomcat/webapps/
+        tag: $TAG
+        ports: 80
+        cmd: "/root/run.sh"
+deploy:
+  box:
+        id: alpine
+        cmd: /bin/sh
+  steps:
+    - bash-template
+
+    - kubectl:
+        name: apply namespace    
+        server: $KUBERNETES_MASTER
+        token: $KUBERNETES_TOKEN
+        insecure-skip-tls-verify: true
+        command: apply -f ./ns.yml
+    - kubectl:
+        name: delete OCR secret
+        server: $KUBERNETES_MASTER
+        token: $KUBERNETES_TOKEN
+        insecure-skip-tls-verify: true
+        command: delete secret wrelease --namespace=$NS --ignore-not-found=true
+    - kubectl:
+        name: create OCR secret
+        server: $KUBERNETES_MASTER
+        token: $KUBERNETES_TOKEN
+        insecure-skip-tls-verify: true
+        command: create secret docker-registry wrelease --docker-server=wcr.io --docker-username=$DOCKER_USER --docker-password=$DOCKER_PASSWORD --docker-email=${WERCKER_APPLICATION_OWNER_NAME}@mail.com --namespace=$NS
+    - kubectl:
+        name: apply deplyoment
+        server: $KUBERNETES_MASTER
+        token: $KUBERNETES_TOKEN
+        insecure-skip-tls-verify: true
+        command: apply -f ./uactoken-deploy.yml --namespace=$NS
+    - kubectl:
+        name: apply service
+        server: $KUBERNETES_MASTER
+        token: $KUBERNETES_TOKEN
+        insecure-skip-tls-verify: true
+        command: apply -f ./uactoken-service.yml --namespace=$NS
+    - kubectl:
+        name: get NodePort address
+        server: $KUBERNETES_MASTER
+        token: $KUBERNETES_TOKEN
+        insecure-skip-tls-verify: true
+        command: get svc -o jsonpath='{.spec.ports[*].nodePort}' --namespace=$NS
