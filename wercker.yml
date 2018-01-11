@@ -19,12 +19,13 @@ build:
     - script: 
       name: build
       code: |
-        mkdir -p /usr/local/tomcat/webapps/uactoken
+        rm -fr /usr/local/tomcat/webapps/*
+        mkdir -p /usr/local/tomcat/webapps/ROOT
         ls
         echo 'pwd1'
         pwd
-        mv ./uactoken.war /usr/local/tomcat/webapps/uactoken/
-        cd /usr/local/tomcat/webapps/uactoken 
+        mv ./uactoken.war /usr/local/tomcat/webapps/ROOT/
+        cd /usr/local/tomcat/webapps/ROOT 
         du -sh ./*
         jar -xvf uactoken.war
         rm -fr uactoken.war
